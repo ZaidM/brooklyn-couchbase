@@ -20,6 +20,7 @@
     <modelVersion>4.0.0</modelVersion>
     <modules>
         <module>couchbase</module>
+        <module>couchbase</module>
     </modules>
 
     <parent>
