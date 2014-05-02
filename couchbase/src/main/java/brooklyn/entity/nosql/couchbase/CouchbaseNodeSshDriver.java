@@ -16,6 +16,8 @@ import brooklyn.entity.drivers.downloads.DownloadResolver;
 import brooklyn.location.OsDetails;
 import brooklyn.location.basic.SshMachineLocation;
 import brooklyn.util.ssh.BashCommands;
+import brooklyn.util.time.Duration;
+import brooklyn.util.time.Time;
 
 public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver implements CouchbaseNodeDriver {
 
@@ -24,6 +26,10 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
 
     public CouchbaseNodeSshDriver(final CouchbaseNodeImpl entity, final SshMachineLocation machine) {
         super(entity, machine);
+    }
+
+    public static String couchbaseCli(String cmd) {
+        return "/opt/couchbase/bin/couchbase-cli " + cmd + " ";
     }
 
     @Override
@@ -75,7 +81,6 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
     @Override
     public void customize() {
 
-        //initialize the node
 //        newScript(CUSTOMIZING)
 //                .body.append(format("%s node-init -c %s --node-init-data-path=/tmp/data --node-init-index-path=/tmp/index", getCouchbaseCliCmd(), getCouchbaseHostnameAndPort()))
 //                .execute();
@@ -93,12 +98,27 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
     public void launch() {
         //automatically starts after installation
         //sudo /etc/init.d/couchbase-server start
+
+        //FIXME needs time for http server to initialize
+//        Time.sleep(Duration.TEN_SECONDS);
+//
+//        newScript(LAUNCHING)
+//                .body.append(
+//                sudo("/etc/init.d/couchbase-server start"),
+//                couchbaseCli("cluster-init") +
+//                        getCouchbaseHostnameAndPort() +
+//                        " --cluster-init-username=" + getUsername() +
+//                        " --cluster-init-password=" + getPassword() +
+//                        " --cluster-init-port=" + getWebPort() +
+//                        " --cluster-init-ramsize=" + getClusterInitRamSize())
+//                .execute();
     }
 
     @Override
     public boolean isRunning() {
+        //TODO add a better way to check if couchbase server is running
         return (newScript(CHECK_RUNNING)
-                .body.append("pwd")
+                .body.append(format("curl -u %s:%s http://%s:%s/pools/nodes", getUsername(), getPassword(), getHostname(), getWebPort()))
                 .execute() == 0);
     }
 
@@ -153,40 +173,27 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
         return entity.getConfig(CouchbaseNode.COUCHBASE_CLUSTER_INIT_RAM_SIZE).toString();
     }
 
-    public void clusterInit() {
-        newScript("clusterInit")
-                .body.append(
-                couchbaseCli("cluster-init") +
-                        getCouchbaseHostnameAndPort() +
-                        " --cluster-init-username=" + getUsername() +
-                        " --cluster-init-password=" + getPassword() +
-                        " --cluster-init-port=" + getWebPort() +
-                        " --cluster-init-ramsize=" + getClusterInitRamSize())
-                .execute();
-    }
-
+    @Override
     public void rebalance() {
         newScript("rebalance")
                 .body.append(
                 couchbaseCli("rebalance") +
                         getCouchbaseHostnameAndCredentials())
+                .failOnNonZeroResultCode()
                 .execute();
     }
 
-    public void serverAdd(String serverToAdd) {
+    @Override
+    public void serverAdd(String serverToAdd,String username,String password) {
         //FIXME add username/password of the server to add
-        newScript("serverAdd")
-                .body.append(
-                couchbaseCli("server-add") +
-                        getCouchbaseHostnameAndCredentials() +
-                        " --server-add=" + serverToAdd +
-                        " --server-add-username=Administrator" +
-                        " --server-add-password=password").execute();
-
-    }
-
-    public static String couchbaseCli(String cmd) {
-        return "/opt/couchbase/bin/couchbase-cli " + cmd + " ";
+        //TODO maybe use an entity instead of hostname only
+        newScript("serverAdd").body.append(couchbaseCli("server-add")
+                + getCouchbaseHostnameAndCredentials() +
+                " --server-add=" + serverToAdd +
+                " --server-add-username=" + username +
+                " --server-add-password=" + password)
+                .failOnNonZeroResultCode()
+                .execute();
     }
 
 }

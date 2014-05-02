@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import brooklyn.entity.basic.AbstractApplication;
 import brooklyn.entity.basic.Entities;
 import brooklyn.entity.basic.StartableApplication;
+import brooklyn.entity.nosql.couchbase.CouchbaseCluster;
 import brooklyn.entity.nosql.couchbase.CouchbaseNode;
 import brooklyn.entity.proxying.EntitySpec;
 import brooklyn.launcher.BrooklynLauncher;
@@ -18,8 +19,9 @@ public class CouchbaseExample extends AbstractApplication implements StartableAp
     //public static final String DEFAULT_LOCATION_SPEC = "AWS Virginia (us-east-1)";
 
     public void init() {
-        addChild(EntitySpec.create(CouchbaseNode.class));
-        addChild(EntitySpec.create(CouchbaseNode.class));
+        addChild(EntitySpec.create(CouchbaseCluster.class)
+                .configure(CouchbaseCluster.INITIAL_SIZE, 3));
+
     }
 
     public static void main(String[] argv) {

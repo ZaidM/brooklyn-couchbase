@@ -1,11 +1,18 @@
 package brooklyn.entity.nosql.couchbase;
 
+import java.util.List;
+
 import brooklyn.config.ConfigKey;
+import brooklyn.entity.annotation.Effector;
+import brooklyn.entity.annotation.EffectorParam;
 import brooklyn.entity.basic.ConfigKeys;
+import brooklyn.entity.basic.MethodEffector;
 import brooklyn.entity.basic.SoftwareProcess;
 import brooklyn.entity.proxying.ImplementedBy;
+import brooklyn.event.AttributeSensor;
 import brooklyn.event.basic.BasicAttributeSensorAndConfigKey;
 import brooklyn.event.basic.PortAttributeSensorAndConfigKey;
+import brooklyn.event.basic.Sensors;
 import brooklyn.util.flags.SetFromFlag;
 
 @ImplementedBy(CouchbaseNodeImpl.class)
@@ -27,7 +34,7 @@ public interface CouchbaseNode extends SoftwareProcess {
 
     @SetFromFlag("clusterInitRamSize")
     BasicAttributeSensorAndConfigKey<Integer> COUCHBASE_CLUSTER_INIT_RAM_SIZE = new BasicAttributeSensorAndConfigKey<Integer>(
-            Integer.class,"couchbase.clusterInitRamSize", "initial ram size of the cluster",300);
+            Integer.class, "couchbase.clusterInitRamSize", "initial ram size of the cluster", 300);
 
     PortAttributeSensorAndConfigKey COUCHBASE_WEB_ADMIN_PORT = new PortAttributeSensorAndConfigKey("couchbase.webAdminPort", "Web Administration Port", "8091+");
     PortAttributeSensorAndConfigKey COUCHBASE_API_PORT = new PortAttributeSensorAndConfigKey("couchbase.apiPort", "Couchbase API Port", "8092+");
@@ -41,6 +48,17 @@ public interface CouchbaseNode extends SoftwareProcess {
     PortAttributeSensorAndConfigKey ERLANG_PORT_MAPPER = new PortAttributeSensorAndConfigKey("couchbase.erlangPortMapper", "Erlang Port Mapper Daemon Listener Port (epmd)", "4369");
     PortAttributeSensorAndConfigKey NODE_DATA_EXCHANGE_PORT_RANGE_START = new PortAttributeSensorAndConfigKey("couchbase.nodeDataExchangePortRangeStart", "Node data exchange Port Range Start", "21100+");
     PortAttributeSensorAndConfigKey NODE_DATA_EXCHANGE_PORT_RANGE_END = new PortAttributeSensorAndConfigKey("couchbase.nodeDataExchangePortRangeEnd", "Node data exchange Port Range End", "21199+");
+
+    AttributeSensor<String> COUCHBASE_WEB_ADMIN_URL = Sensors.newStringSensor("couchbase.webAdminUrl", "The administration console Url for this Couchbase node");
+    public static final MethodEffector<Void> SERVER_ADD = new MethodEffector<Void>(CouchbaseNode.class, "serverAdd");
+    public static final MethodEffector<Void> REBALANCE = new MethodEffector<Void>(CouchbaseNode.class, "rebalance");
+
+    @Effector(description = "add a server to a cluster")
+    public void serverAdd(@EffectorParam(name = "serverHostname") String serverToAdd,@EffectorParam(name = "username") String username,@EffectorParam(name = "password") String password);
+
+    @Effector(description = "rebalance the couchbase cluster")
+    public void rebalance();
+
 
 
 }

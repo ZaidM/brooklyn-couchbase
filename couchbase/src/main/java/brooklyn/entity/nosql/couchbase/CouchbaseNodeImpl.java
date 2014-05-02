@@ -1,10 +1,15 @@
 package brooklyn.entity.nosql.couchbase;
 
+import static java.lang.String.format;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+import brooklyn.entity.basic.Attributes;
 import brooklyn.entity.basic.SoftwareProcessImpl;
+import brooklyn.event.SensorEvent;
+import brooklyn.event.SensorEventListener;
 import brooklyn.location.MachineProvisioningLocation;
 import brooklyn.location.cloud.CloudLocationConfig;
 import brooklyn.util.collections.MutableSet;
@@ -25,6 +30,18 @@ public class CouchbaseNodeImpl extends SoftwareProcessImpl implements CouchbaseN
     @Override
     public void init() {
         super.init();
+
+        subscribe(this, Attributes.SERVICE_UP, new SensorEventListener<Boolean>() {
+            @Override
+            public void onEvent(SensorEvent<Boolean> booleanSensorEvent) {
+                if (Boolean.TRUE.equals(booleanSensorEvent)) {
+                    String hostname = getAttribute(HOSTNAME);
+                    String webPort = getConfig(CouchbaseNode.COUCHBASE_WEB_ADMIN_PORT).iterator().next().toString();
+
+                    setAttribute(CouchbaseNode.COUCHBASE_WEB_ADMIN_URL, format("http://%s:%s", hostname, webPort));
+                }
+            }
+        });
     }
 
     protected Map<String, Object> obtainProvisioningFlags(@SuppressWarnings("rawtypes") MachineProvisioningLocation location) {
@@ -47,4 +64,27 @@ public class CouchbaseNodeImpl extends SoftwareProcessImpl implements CouchbaseN
             newPorts.add(i);
         return newPorts;
     }
+
+    @Override
+    public void serverAdd(String serverToAdd, String username, String password) {
+        getDriver().serverAdd(serverToAdd, username, password);
+    }
+
+    @Override
+    public void rebalance() {
+        getDriver().rebalance();
+    }
+
+
+    public void connectSensors() {
+        super.connectSensors();
+        connectServiceUpIsRunning();
+    }
+
+    public void disconnectSensors() {
+        super.disconnectSensors();
+        disconnectServiceUpIsRunning();
+    }
+
+
 }
