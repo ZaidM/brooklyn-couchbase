@@ -50,6 +50,7 @@ public interface CouchbaseNode extends SoftwareProcess {
     PortAttributeSensorAndConfigKey NODE_DATA_EXCHANGE_PORT_RANGE_END = new PortAttributeSensorAndConfigKey("couchbase.nodeDataExchangePortRangeEnd", "Node data exchange Port Range End", "21199+");
 
     AttributeSensor<String> COUCHBASE_WEB_ADMIN_URL = Sensors.newStringSensor("couchbase.webAdminUrl", "The administration console Url for this Couchbase node");
+    AttributeSensor<Boolean> IS_PRIMARY_NODE = Sensors.newBooleanSensor("couchbase.isPrimaryNode","flag to determine if the current couchbase node is the primary node for the cluster");
     public static final MethodEffector<Void> SERVER_ADD = new MethodEffector<Void>(CouchbaseNode.class, "serverAdd");
     public static final MethodEffector<Void> REBALANCE = new MethodEffector<Void>(CouchbaseNode.class, "rebalance");
 

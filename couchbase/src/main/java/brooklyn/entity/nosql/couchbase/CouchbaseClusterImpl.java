@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import brooklyn.entity.Entity;
 import brooklyn.entity.basic.Attributes;
 import brooklyn.entity.basic.Entities;
+import brooklyn.entity.basic.EntityInternal;
 import brooklyn.entity.basic.Lifecycle;
 import brooklyn.entity.group.AbstractMembershipTrackingPolicy;
 import brooklyn.entity.group.DynamicClusterImpl;
@@ -57,7 +58,10 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
         if (upNodes.isPresent() && !upNodes.get().isEmpty()) {
 
             //select a primary couchbase node
-            setAttribute(COUCHBASE_PRIMARY_NODE, upNodes.get().iterator().next());
+            Entity primaryNode = upNodes.get().iterator().next();
+            ((EntityInternal) primaryNode).setAttribute(CouchbaseNode.IS_PRIMARY_NODE, true);
+            setAttribute(COUCHBASE_PRIMARY_NODE, primaryNode);
+
 
             if (getAttribute(COUCHBASE_CLUSTER_UP_NODES).size() >= getQuorumSize()) {
                 log.info("number of SERVICE_UP nodes:{} in cluster:{} did reached Quorum:{}, adding the servers", new Object[]{getUpNodes().size(), getId(), getQuorumSize()});
