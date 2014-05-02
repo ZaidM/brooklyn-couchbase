@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -28,7 +27,6 @@ import brooklyn.entity.group.AbstractMembershipTrackingPolicy;
 import brooklyn.entity.group.DynamicClusterImpl;
 import brooklyn.entity.proxying.EntitySpec;
 import brooklyn.entity.trait.Startable;
-import brooklyn.event.feed.http.HttpFeed;
 import brooklyn.location.Location;
 import brooklyn.util.collections.MutableMap;
 import brooklyn.util.time.Time;
@@ -36,12 +34,10 @@ import brooklyn.util.time.Time;
 public class CouchbaseClusterImpl extends DynamicClusterImpl implements CouchbaseCluster {
     private static final Logger log = LoggerFactory.getLogger(CouchbaseClusterImpl.class);
     private final Object mutex = new Object[0];
-    private volatile HttpFeed httpFeed;
 
     public void init() {
         log.info("Initializing the Couchbase cluster...");
         super.init();
-
     }
 
     @Override
@@ -61,7 +57,6 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
             Entity primaryNode = upNodes.get().iterator().next();
             ((EntityInternal) primaryNode).setAttribute(CouchbaseNode.IS_PRIMARY_NODE, true);
             setAttribute(COUCHBASE_PRIMARY_NODE, primaryNode);
-
 
             if (getAttribute(COUCHBASE_CLUSTER_UP_NODES).size() >= getQuorumSize()) {
                 log.info("number of SERVICE_UP nodes:{} in cluster:{} did reached Quorum:{}, adding the servers", new Object[]{getUpNodes().size(), getId(), getQuorumSize()});
@@ -92,53 +87,11 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
     @Override
     public void stop() {
         super.stop();
-        disconnectSensors();
     }
 
-    protected void addServers() {
-
-        final Entity primaryNode = getPrimaryNode();
-        Set<Entity> upNodes = getUpNodes();
-        Set<Entity> serversToAdd = Sets.filter(upNodes, new Predicate<Entity>() {
-            @Override
-            public boolean apply(@Nullable Entity entity) {
-                return !entity.equals(primaryNode);
-            }
-        });
-
-        String hostname = primaryNode.getAttribute(Attributes.HOSTNAME);
-        Integer webPort = primaryNode.getConfig(CouchbaseNode.COUCHBASE_WEB_ADMIN_PORT).iterator().next();
-        String username = primaryNode.getConfig(CouchbaseNode.COUCHBASE_ADMIN_USERNAME);
-        String password = primaryNode.getConfig(CouchbaseNode.COUCHBASE_ADMIN_PASSWORD);
-
-        for (String s : getHostnames(serversToAdd)) {
-            Entities.invokeEffectorWithArgs(this, primaryNode, CouchbaseNode.SERVER_ADD, s);
-        }
-
-//        httpFeed = HttpFeed.builder()
-//                .entity(this)
-//                .period(500, TimeUnit.MILLISECONDS)
-//                .baseUri(String.format("http://%s:%d/pools/default", hostname, webPort))
-//                .credentials(username, password)
-//                .poll(new HttpPollConfig<Integer>(ACTUAL_CLUSTER_SIZE)
-//                        .onSuccess(HttpValueFunctions.chain(
-//                                HttpValueFunctions.jsonContents("nodes", String[].class),
-//                                new Function<String[], Integer>() {
-//                                    @Nullable
-//                                    @Override
-//                                    public Integer apply(@Nullable String[] nodes) {
-//                                        return nodes.length;
-//                                    }
-//                                }))
-//                        .onFailureOrException(Functions.constant(-1)))
-//                .build();
-//
-//        WebAppServiceMethods.connectWebAppServerPolicies(this);
-
-
-    }
 
     public void connectEnrichers() {
+        //TODO: check how to create a service up enricher for the cluster
 //        subscribeToMembers(this, SERVICE_UP, new SensorEventListener<Boolean>() {
 //            @Override
 //            public void onEvent(SensorEvent<Boolean> event) {
@@ -222,11 +175,6 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
         return true;
     }
 
-    public void disconnectSensors() {
-        if (httpFeed != null) {
-            httpFeed.stop();
-        }
-    }
 
     protected EntitySpec<?> getMemberSpec() {
         EntitySpec<?> result = super.getMemberSpec();
