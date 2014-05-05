@@ -21,7 +21,6 @@ public class CouchbaseExample extends AbstractApplication implements StartableAp
     public void init() {
         addChild(EntitySpec.create(CouchbaseCluster.class)
                 .configure(CouchbaseCluster.INITIAL_SIZE, 3));
-
     }
 
     public static void main(String[] argv) {

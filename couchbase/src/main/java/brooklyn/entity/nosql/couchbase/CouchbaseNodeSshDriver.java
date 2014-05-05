@@ -22,7 +22,6 @@ import brooklyn.util.time.Time;
 public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver implements CouchbaseNodeDriver {
 
     private static final Logger LOG = LoggerFactory.getLogger(CouchbaseNodeSshDriver.class);
-    private boolean isClusterInit = false;
 
     public CouchbaseNodeSshDriver(final CouchbaseNodeImpl entity, final SshMachineLocation machine) {
         super(entity, machine);
@@ -80,10 +79,7 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
 
     @Override
     public void customize() {
-
-//        newScript(CUSTOMIZING)
-//                .body.append(format("%s node-init -c %s --node-init-data-path=/tmp/data --node-init-index-path=/tmp/index", getCouchbaseCliCmd(), getCouchbaseHostnameAndPort()))
-//                .execute();
+        //TODO: add linux tweaks for couchbase
         //http://blog.couchbase.com/often-overlooked-linux-os-tweaks
 
         //turn off swappiness
@@ -96,22 +92,18 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
 
     @Override
     public void launch() {
-        //automatically starts after installation
-        //sudo /etc/init.d/couchbase-server start
-
         //FIXME needs time for http server to initialize
-//        Time.sleep(Duration.TEN_SECONDS);
-//
-//        newScript(LAUNCHING)
-//                .body.append(
-//                sudo("/etc/init.d/couchbase-server start"),
-//                couchbaseCli("cluster-init") +
-//                        getCouchbaseHostnameAndPort() +
-//                        " --cluster-init-username=" + getUsername() +
-//                        " --cluster-init-password=" + getPassword() +
-//                        " --cluster-init-port=" + getWebPort() +
-//                        " --cluster-init-ramsize=" + getClusterInitRamSize())
-//                .execute();
+        Time.sleep(Duration.TEN_SECONDS);
+//            newScript(LAUNCHING)
+//                    .body.append(
+//                    sudo("/etc/init.d/couchbase-server start"),
+//                    couchbaseCli("cluster-init") +
+//                            getCouchbaseHostnameAndPort() +
+//                            " --cluster-init-username=" + getUsername() +
+//                            " --cluster-init-password=" + getPassword() +
+//                            " --cluster-init-port=" + getWebPort() +
+//                            " --cluster-init-ramsize=" + getClusterInitRamSize())
+//                    .execute();
     }
 
     @Override
@@ -184,10 +176,18 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
     }
 
     @Override
-    public void serverAdd(String serverToAdd,String username,String password) {
-        //FIXME add username/password of the server to add
-        //TODO maybe use an entity instead of hostname only
+    public void serverAdd(String serverToAdd, String username, String password) {
         newScript("serverAdd").body.append(couchbaseCli("server-add")
+                + getCouchbaseHostnameAndCredentials() +
+                " --server-add=" + serverToAdd +
+                " --server-add-username=" + username +
+                " --server-add-password=" + password)
+                .failOnNonZeroResultCode()
+                .execute();
+    }
+
+    public void serverAddAndRebalance(String serverToAdd, String username, String password) {
+        newScript("serverAddAndRebalance").body.append(couchbaseCli("rebalance")
                 + getCouchbaseHostnameAndCredentials() +
                 " --server-add=" + serverToAdd +
                 " --server-add-username=" + username +

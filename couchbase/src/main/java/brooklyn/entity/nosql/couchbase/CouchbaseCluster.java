@@ -26,8 +26,11 @@ public interface CouchbaseCluster extends DynamicCluster {
     AttributeSensor<List<String>> COUCHBASE_CLUSTER_BUCKETS = Sensors.newSensor(new TypeToken<List<String>>() {
     }, "couchbase.cluster.buckets", "Names of all the buckets the couchbase cluster");
 
-    AttributeSensor<Entity> COUCHBASE_PRIMARY_NODE = Sensors.newSensor(Entity.class,"couchbase.cluster.primaryNode","The primary couchbase node to query and issue add-server and rebalance on");
+    AttributeSensor<Entity> COUCHBASE_PRIMARY_NODE = Sensors.newSensor(Entity.class, "couchbase.cluster.primaryNode", "The primary couchbase node to query and issue add-server and rebalance on");
 
+    AttributeSensor<Boolean> IS_CLUSTER_INITIALIZED = Sensors.newBooleanSensor("couchbase.cluster.isClusterInitialized", "flag to emit if the couchbase cluster was intialized");
+
+    AttributeSensor<Set<Entity>> SERVERS_TO_BE_ADDED = Sensors.newSensor(new TypeToken<Set<Entity>>(){}, "couchbase.cluster.serversToBeAdded", "set of servers to be added after cluster initialization");
     @SetFromFlag("intialQuorumSize")
     ConfigKey<Integer> INITIAL_QUORUM_SIZE = ConfigKeys.newIntegerConfigKey("couchbase.cluster.intialQuorumSize", "Initial cluster quorum size - number of initial nodes that must have been successfully started to report success (if < 0, then use value of INITIAL_SIZE)",
             -1);
@@ -36,5 +39,5 @@ public interface CouchbaseCluster extends DynamicCluster {
     ConfigKey<Duration> DELAY_BEFORE_ADVERTISING_CLUSTER = ConfigKeys.newConfigKey(Duration.class, "couchbase.cluster.delayBeforeAdvertisingCluster", "Delay after cluster is started before checking and advertising its availability", Duration.THIRTY_SECONDS);
 
     @SetFromFlag("serviceUpTimeOut")
-    ConfigKey<Duration> SERVICE_UP_TIME_OUT = ConfigKeys.newConfigKey(Duration.class, "couchbase.cluster.serviceUpTimeOut", "Service up time out duration for all the couchbase nodes", Duration.seconds(50));
+    ConfigKey<Duration> SERVICE_UP_TIME_OUT = ConfigKeys.newConfigKey(Duration.class, "couchbase.cluster.serviceUpTimeOut", "Service up time out duration for all the couchbase nodes", Duration.seconds(10));
 }
