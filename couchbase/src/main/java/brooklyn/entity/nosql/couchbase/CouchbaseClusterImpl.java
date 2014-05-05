@@ -36,9 +36,6 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
     public void init() {
         log.info("Initializing the Couchbase cluster...");
         super.init();
-
-        //set of servers to add, initially an empty set.
-        setAttribute(SERVERS_TO_BE_ADDED, Sets.<Entity>newHashSet());
     }
 
     @Override
@@ -59,11 +56,12 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
             ((EntityInternal) primaryNode).setAttribute(CouchbaseNode.IS_PRIMARY_NODE, true);
             setAttribute(COUCHBASE_PRIMARY_NODE, primaryNode);
 
-            removeServerToBeAdded(getPrimaryNode());
+            Set<Entity> serversToAdd = MutableSet.<Entity>copyOf(getUpNodes());
+            serversToAdd.remove(getPrimaryNode());
 
-            if (getAttribute(COUCHBASE_CLUSTER_UP_NODES).size() >= getQuorumSize()) {
+            if (getUpNodes().size() >= getQuorumSize() && getUpNodes().size() > 1) {
                 log.info("number of SERVICE_UP nodes:{} in cluster:{} did reached Quorum:{}, adding the servers", new Object[]{getUpNodes().size(), getId(), getQuorumSize()});
-                addServers();
+                addServers(serversToAdd);
 
                 //wait for servers to be added to the couchbase server
                 Time.sleep(getConfig(DELAY_BEFORE_ADVERTISING_CLUSTER));
@@ -71,6 +69,7 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
 
                 setAttribute(IS_CLUSTER_INITIALIZED, true);
             } else {
+                //TODO: add a repeater to wait for a quorum of servers to be up.
                 //retry waiting for service up?
                 //check Repeater.
             }
@@ -87,12 +86,12 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
 
     public void connectEnrichers() {
 
-//        subscribeToMembers(this, SERVICE_UP, new SensorEventListener<Boolean>() {
-//            @Override
-//            public void onEvent(SensorEvent<Boolean> event) {
-//                setAttribute(SERVICE_UP, calculateServiceUp());
-//            }
-//        });
+        subscribeToMembers(this, SERVICE_UP, new SensorEventListener<Boolean>() {
+            @Override
+            public void onEvent(SensorEvent<Boolean> event) {
+                setAttribute(SERVICE_UP, calculateServiceUp());
+            }
+        });
     }
 
     protected void connectSensors() {
@@ -137,7 +136,9 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
                         setAttribute(COUCHBASE_CLUSTER_UP_NODES, newNodes);
 
                         //add to set of servers to be added.
-                        addServerToBeAdded(member);
+                        if (isClusterInitialized()) {
+                            addServer(member);
+                        }
                     } else {
                         log.warn("Node already in cluster up nodes {}: {};", this, member);
                     }
@@ -145,13 +146,15 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
                     Set<Entity> newNodes = Sets.newHashSet();
                     newNodes.add(member);
                     setAttribute(COUCHBASE_CLUSTER_UP_NODES, newNodes);
-                    addServerToBeAdded(member);
+
+                    if (isClusterInitialized()) {
+                        addServer(member);
+                    }
                 }
             } else {
                 Set<Entity> upNodes = getUpNodes();
                 if (upNodes != null && upNodes.contains(member)) {
                     upNodes.remove(member);
-                    removeServerToBeAdded(member);
                     setAttribute(COUCHBASE_CLUSTER_UP_NODES, upNodes);
                     log.info("Removing couchbase node {}: {}; from cluster", new Object[]{this, member});
                 }
@@ -200,11 +203,6 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
         return getAttribute(COUCHBASE_CLUSTER_UP_NODES);
     }
 
-    private Set<Entity> getServersToAdd() {
-
-        return getAttribute(SERVERS_TO_BE_ADDED);
-    }
-
     private Entity getPrimaryNode() {
         return getAttribute(COUCHBASE_PRIMARY_NODE);
     }
@@ -217,46 +215,45 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
         return true;
     }
 
-    protected void addServers() {
+    protected void addServers(Set<Entity> serversToAdd) {
         //FIXME: disambiguate between method names to differentiate between the stage phase and commit phase.
         log.info("adding the SERVICE_UP couchbase nodes to the cluster..");
 
-        Set<Entity> serversToAdd = MutableSet.<Entity>copyOf(getServersToAdd());
         if (!serversToAdd.isEmpty()) {
             for (Entity e : serversToAdd) {
-                String hostname = e.getAttribute(Attributes.HOSTNAME) + ":" + e.getConfig(CouchbaseNode.COUCHBASE_WEB_ADMIN_PORT).iterator().next();
-                String username = e.getConfig(CouchbaseNode.COUCHBASE_ADMIN_USERNAME);
-                String password = e.getConfig(CouchbaseNode.COUCHBASE_ADMIN_PASSWORD);
+                if (!isMemberInCluster(e)) {
+                    String hostname = e.getAttribute(Attributes.HOSTNAME) + ":" + e.getConfig(CouchbaseNode.COUCHBASE_WEB_ADMIN_PORT).iterator().next();
+                    String username = e.getConfig(CouchbaseNode.COUCHBASE_ADMIN_USERNAME);
+                    String password = e.getConfig(CouchbaseNode.COUCHBASE_ADMIN_PASSWORD);
 
-                Entities.invokeEffectorWithArgs(this, getPrimaryNode(), CouchbaseNode.SERVER_ADD, hostname, username, password);
-                //FIXME check feedback of whether the server was added.
-                removeServerToBeAdded(e);
+                    Entities.invokeEffectorWithArgs(this, getPrimaryNode(), CouchbaseNode.SERVER_ADD, hostname, username, password);
+                    //FIXME check feedback of whether the server was added.
+                    ((EntityInternal) e).setAttribute(CouchbaseNode.IS_IN_CLUSTER, true);
+                }
             }
         } else {
             log.warn("no servers to be added on the cluster: {}", this);
         }
     }
 
-    private void addServerToBeAdded(Entity e) {
-        Set<Entity> serversToBeAdded = MutableSet.copyOf(getServersToAdd());
-        serversToBeAdded.add(e);
-        setAttribute(SERVERS_TO_BE_ADDED, serversToBeAdded);
+    protected void addServer(Entity serverToAdd) {
 
-        //FIXME: find a way to collect servers to be added before adding them directly.
-        if (isClusterInitialized()) {
-            addServers();
-        }
-    }
+        if (!isMemberInCluster(serverToAdd)) {
+            String hostname = serverToAdd.getAttribute(Attributes.HOSTNAME) + ":" + serverToAdd.getConfig(CouchbaseNode.COUCHBASE_WEB_ADMIN_PORT).iterator().next();
+            String username = serverToAdd.getConfig(CouchbaseNode.COUCHBASE_ADMIN_USERNAME);
+            String password = serverToAdd.getConfig(CouchbaseNode.COUCHBASE_ADMIN_PASSWORD);
 
-    private void removeServerToBeAdded(Entity e) {
-        Set<Entity> serversToBeAdded = MutableSet.copyOf(getServersToAdd());
-        if (!serversToBeAdded.contains(e)) {
-            serversToBeAdded.remove(e);
-            setAttribute(SERVERS_TO_BE_ADDED, serversToBeAdded);
+            Entities.invokeEffectorWithArgs(this, getPrimaryNode(), CouchbaseNode.SERVER_ADD, hostname, username, password);
+            //FIXME check feedback of whether the server was added.
+            ((EntityInternal) serverToAdd).setAttribute(CouchbaseNode.IS_IN_CLUSTER, true);
         }
     }
 
     public boolean isClusterInitialized() {
-        return getAttribute(IS_CLUSTER_INITIALIZED);
+        return Optional.fromNullable(getAttribute(IS_CLUSTER_INITIALIZED)).or(false);
+    }
+
+    public boolean isMemberInCluster(Entity e) {
+        return Optional.fromNullable(e.getAttribute(CouchbaseNode.IS_IN_CLUSTER)).or(false);
     }
 }

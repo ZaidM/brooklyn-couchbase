@@ -94,16 +94,16 @@ public class CouchbaseNodeSshDriver extends AbstractSoftwareProcessSshDriver imp
     public void launch() {
         //FIXME needs time for http server to initialize
         Time.sleep(Duration.TEN_SECONDS);
-//            newScript(LAUNCHING)
-//                    .body.append(
-//                    sudo("/etc/init.d/couchbase-server start"),
-//                    couchbaseCli("cluster-init") +
-//                            getCouchbaseHostnameAndPort() +
-//                            " --cluster-init-username=" + getUsername() +
-//                            " --cluster-init-password=" + getPassword() +
-//                            " --cluster-init-port=" + getWebPort() +
-//                            " --cluster-init-ramsize=" + getClusterInitRamSize())
-//                    .execute();
+        newScript(LAUNCHING)
+                .body.append(
+                sudo("/etc/init.d/couchbase-server start"),
+                couchbaseCli("cluster-init") +
+                        getCouchbaseHostnameAndPort() +
+                        " --cluster-init-username=" + getUsername() +
+                        " --cluster-init-password=" + getPassword() +
+                        " --cluster-init-port=" + getWebPort() +
+                        " --cluster-init-ramsize=" + getClusterInitRamSize())
+                .execute();
     }
 
     @Override
