@@ -27,6 +27,7 @@ import brooklyn.event.SensorEventListener;
 import brooklyn.location.Location;
 import brooklyn.util.collections.MutableMap;
 import brooklyn.util.collections.MutableSet;
+import brooklyn.util.time.Duration;
 import brooklyn.util.time.Time;
 
 public class CouchbaseClusterImpl extends DynamicClusterImpl implements CouchbaseCluster {
@@ -137,7 +138,10 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
 
                         //add to set of servers to be added.
                         if (isClusterInitialized()) {
+                            //FIXME: find a better way to add server and rebalance them after cluster initialization.
                             addServer(member);
+                            Time.sleep(Duration.TEN_SECONDS);
+                            Entities.invokeEffector(this, getPrimaryNode(), CouchbaseNode.REBALANCE);
                         }
                     } else {
                         log.warn("Node already in cluster up nodes {}: {};", this, member);
@@ -149,6 +153,8 @@ public class CouchbaseClusterImpl extends DynamicClusterImpl implements Couchbas
 
                     if (isClusterInitialized()) {
                         addServer(member);
+                        Time.sleep(Duration.TEN_SECONDS);
+                        Entities.invokeEffector(this, getPrimaryNode(), CouchbaseNode.REBALANCE);
                     }
                 }
             } else {
